@@ -1,6 +1,6 @@
 
 import { fetchNomPokemon, fetchGenericURL } from './api.ts'
-
+import { ajouterPokemon } from './équipe.ts';
 export async function afficherFicheDetaillee(nomOuId: string | number) {
     const liste = document.querySelector<HTMLUListElement>('#pokemon-list')!;
     const pagination = document.querySelector<HTMLDivElement>('.pagination-controls')!;
@@ -88,9 +88,9 @@ export async function afficherFicheDetaillee(nomOuId: string | number) {
                         </div>
 
                         <button id="play-cry" class="cry-btn">🔊 Écouter le cri</button>
-                        <button>Ajouter à l'équipe 1</button>
-                        <button>Ajouter à l'équipe 2</button>
-                        <button>Ajouter à l'équipe 3</button>
+                        <button id="add-team-1" class="team-add-btn">Ajouter à l'équipe 1</button>
+                        <button id="add-team-2" class="team-add-btn">Ajouter à l'équipe 2</button>
+                        <button id="add-team-3" class="team-add-btn">Ajouter à l'équipe 3</button>
                         
                     </div>
                 </div>
@@ -143,7 +143,15 @@ export async function afficherFicheDetaillee(nomOuId: string | number) {
                 afficherFicheDetaillee(nextId);
             });
         }
-
+        [1, 2, 3].forEach(num => {
+            const btnAjout = document.getElementById(`add-team-${num}`);
+            if (btnAjout) {
+                btnAjout.addEventListener('click', () => {
+                    // On appelle la fonction qu'on a créée dans équipe.ts
+                    ajouterPokemon(num, pokemon);
+                });
+            }
+        });
     } catch (error) {
         detail.innerHTML = "<div class='error-box'>FATAL_ERROR: DATA_CORRUPT</div>";
         console.error(error);

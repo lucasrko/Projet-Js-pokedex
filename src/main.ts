@@ -1,7 +1,7 @@
 import './style.css'
 import { getPokemonIndic } from './pagination.ts'
 import {  rechercherUnPokemon} from './recherche.ts'
-
+import { CreateurEquipe } from './équipe.ts'; // Vérifie que l'import est là
 
 let currentPage = 1;
 
@@ -25,3 +25,4 @@ document.querySelector<HTMLInputElement>('#search-input')?.addEventListener('key
 });
 // Premier chargement
 getPokemonIndic(currentPage);
+CreateurEquipe();
