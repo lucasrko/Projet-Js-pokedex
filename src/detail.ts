@@ -1,4 +1,4 @@
-// detail.ts
+
 import { fetchNomPokemon, fetchGenericURL } from './api.ts'
 
 export async function afficherFicheDetaillee(nomOuId: string | number) {
@@ -88,6 +88,10 @@ export async function afficherFicheDetaillee(nomOuId: string | number) {
                         </div>
 
                         <button id="play-cry" class="cry-btn">🔊 Écouter le cri</button>
+                        <button>Ajouter à l'équipe 1</button>
+                        <button>Ajouter à l'équipe 2</button>
+                        <button>Ajouter à l'équipe 3</button>
+                        
                     </div>
                 </div>
 

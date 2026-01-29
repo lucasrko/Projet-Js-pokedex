@@ -2,6 +2,7 @@
 import {afficherFicheDetaillee} from  './detail.ts'
 import {fetchListePokemon} from './api.ts'
 import {rechercherUnPokemon} from "./recherche.ts";
+import {CreateurEquipe} from "./équipe.ts";
 export let currentPage = 1;
 
 export async function getPokemonIndic(page: number, LIMIT=18) {
@@ -41,11 +42,13 @@ export async function getPokemonIndic(page: number, LIMIT=18) {
     liste.innerHTML = "";
 
     if (liste) {
+
         for (const p of catalogue.results) {
             const rep = await fetch(p.url);
             const pokemon = await rep.json();
 
             liste.innerHTML += `
+                
                 <li class="pokemon-card clickable-card" data-name="${pokemon.name}">
                     <div class="pokemon-name">${pokemon.name}</div>
                     <img src="${pokemon.sprites.other['official-artwork'].front_default}" alt="${pokemon.name}" />
