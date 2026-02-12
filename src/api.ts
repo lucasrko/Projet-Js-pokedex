@@ -41,3 +41,12 @@ export async function fetchGenericURL(url: string) {
     }
 }
 
+export async function fetchTypeDetail(url: string) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Erreur Type API');
+        return await response.json();
+    } catch (error) {
+        console.error("Erreur Fetch Type:", error);
+    }
+}

@@ -2,7 +2,7 @@
 import {afficherFicheDetaillee} from  './detail.ts'
 import {fetchListePokemon} from './api.ts'
 import {rechercherUnPokemon} from "./recherche.ts";
-import {CreateurEquipe} from "./équipe.ts";
+
 export let currentPage = 1;
 
 export async function getPokemonIndic(page: number, LIMIT=18) {

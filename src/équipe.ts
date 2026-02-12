@@ -1,11 +1,12 @@
+import { fetchTypeDetail } from './api.ts';
 
 export interface MembreEquipe {
     id: number;
     nom: string;
     image: string;
+    types: { name: string, url: string }[]; // On garde l'URL pour fetcher direct
 }
 
-// 1. AFFICHER LE BOUTON "MES ÉQUIPES" SUR L'ACCUEIL
 export function CreateurEquipe() {
     const liste = document.querySelector<HTMLUListElement>('#pokemon-list');
     if (!liste) return;
@@ -15,27 +16,20 @@ export function CreateurEquipe() {
     if (!teamContainer) {
         teamContainer = document.createElement('div');
         teamContainer.id = 'pokemon-team-container';
-        // On le cache par défaut, on l'affichera quand on cliquera sur le bouton
-
-        // Insertion du conteneur avant la liste
         if (liste.parentNode) {
             liste.parentNode.insertBefore(teamContainer, liste);
         }
 
-        // Création du bouton principal
         const btnDiv = document.createElement('div');
         btnDiv.innerHTML = `<button id="btn-mes-equipes">GÉRER MES ÉQUIPES</button>`;
-        // On insère ce bouton AVANT le container d'équipe pour qu'il reste toujours visible
         teamContainer.parentNode?.insertBefore(btnDiv, teamContainer);
 
-        // Clic sur le bouton
         document.getElementById('btn-mes-equipes')?.addEventListener('click', () => {
             afficherPageEquipes();
         });
     }
 }
 
-// AFFICHER LA PAGE DE GESTION DES ÉQUIPES
 export function afficherPageEquipes() {
     const liste = document.querySelector<HTMLUListElement>('#pokemon-list')!;
     const pagination = document.querySelector<HTMLDivElement>('.pagination-controls')!;
@@ -43,74 +37,174 @@ export function afficherPageEquipes() {
     const teamContainer = document.querySelector<HTMLDivElement>('#pokemon-team-container')!;
     const searchContainer = document.querySelector('.search-container') as HTMLElement;
 
-    // A. Masquer les autres vues
     liste.style.display = "none";
     pagination.style.display = "none";
     detail.style.display = "none";
-    if(searchContainer) searchContainer.style.display = "none";
+    if (searchContainer) searchContainer.style.display = "none";
 
-    // Afficher le conteneur d'équipe
     teamContainer.style.display = "block";
+
     teamContainer.innerHTML = `
         <div style="margin-bottom: 20px;">
             <h2 style="color:var(--cb-blue)">CENTRE DE GESTION D'ÉQUIPES</h2>
             <button id="close-team-btn" class="back-btn">RETOUR LISTE</button>
         </div>
         <div class="teams-wrapper">
-            ${genererHtmlEquipe(1)}
-            ${genererHtmlEquipe(2)}
-            ${genererHtmlEquipe(3)}
+            <div id="team-1-col" class="team-column"></div>
+            <div id="team-2-col" class="team-column"></div>
+            <div id="team-3-col" class="team-column"></div>
         </div>
     `;
 
-    // C. Gérer le bouton retour
+    chargerEquipe(1);
+    chargerEquipe(2);
+    chargerEquipe(3);
+
     document.getElementById('close-team-btn')?.addEventListener('click', () => {
         teamContainer.style.display = "none";
         liste.style.display = "grid";
         pagination.style.display = "flex";
-        if(searchContainer) searchContainer.style.display = "flex";
+        if (searchContainer) searchContainer.style.display = "flex";
     });
-
-    // D. Activer les boutons de suppression (les croix rouges)
-    attacherEvenementsSuppression();
 }
 
-function genererHtmlEquipe(num: number): string {
+async function chargerEquipe(num: number) {
+    const col = document.getElementById(`team-${num}-col`);
+    if (!col) return;
+
     const data = localStorage.getItem(`team_${num}`);
     const equipe: MembreEquipe[] = data ? JSON.parse(data) : [];
 
+    // Générer la liste des membres
     let membresHtml = '';
-
     if (equipe.length === 0) {
         membresHtml = '<div style="font-style:italic; color:#666;">Aucun Pokémon</div>';
     } else {
-        membresHtml = equipe.map(pokemon => `
+        membresHtml = equipe.map(pokemon => {
+            const typesSafe = pokemon.types ? pokemon.types.map(t => t.name).join('/') : '???';
+            return `
             <div class="team-member">
                 <img src="${pokemon.image}" alt="${pokemon.nom}">
                 <div class="member-info">
                     <strong>${pokemon.nom.toUpperCase()}</strong><br>
-                    ID #${pokemon.id}
+                    <span style="font-size:0.7rem; color:var(--cb-yellow)">TYPE: ${typesSafe}</span>
                 </div>
                 <button class="delete-btn" data-team="${num}" data-id="${pokemon.id}">X</button>
             </div>
-        `).join('');
+        `}).join('');
     }
 
-    return `
-        <div class="team-column">
-            <div class="team-title">ÉQUIPE ${num} (${equipe.length}/6)</div>
-            ${membresHtml}
+    col.innerHTML = `
+        <div class="team-title">ÉQUIPE ${num} (${equipe.length}/6)</div>
+        ${membresHtml}
+        <div id="analyse-team-${num}" class="analysis-box">
+            ${equipe.length > 0 ? '<span class="loading-text">📡 Connexion PokeAPI... Analyse des types...</span>' : ''}
         </div>
     `;
+
+    attacherEvenementsSuppression(col);
+
+    if (equipe.length > 0) {
+        await analyserFaiblessesViaAPI(equipe, num);
+    }
 }
 
-// 3. LOGIQUE DE SUPPRESSION
-function attacherEvenementsSuppression() {
-    const btns = document.querySelectorAll('.delete-btn');
+
+// Liste des 18 types pour vérifier la couverture totale
+const TOUS_LES_TYPES = [
+    "normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground",
+    "flying", "psychic", "bug", "rock", "ghost", "dragon", "steel", "dark", "fairy"
+];
+// Analyse faiblesse
+async function analyserFaiblessesViaAPI(equipe: MembreEquipe[], numTeam: number) {
+    const container = document.getElementById(`analyse-team-${numTeam}`);
+    if (!container) return;
+
+    try {
+        const typeUrlsUniques = new Set<string>();
+        equipe.forEach(p => { if(p.types) p.types.forEach(t => typeUrlsUniques.add(t.url)); });
+
+        const typeDataMap = new Map<string, any>();
+        for (const url of typeUrlsUniques) {
+            const data = await fetchTypeDetail(url);
+            typeDataMap.set(data.name, data);
+        }
+
+        const faiblessesNonCouvertes: { type: string, score: number }[] = [];
+
+        TOUS_LES_TYPES.forEach(typeAttaquant => {
+            let scoreEquipe = 0;
+
+            equipe.forEach(pokemon => {
+                if (!pokemon.types) return;
+
+                let multiplicateur = 1;
+
+                pokemon.types.forEach(typeDefensif => {
+                    const infoType = typeDataMap.get(typeDefensif.name);
+                    if (infoType) {
+                        // L'API nous dit ce qui est super efficace CONTRE ce type
+                        if (infoType.damage_relations.double_damage_from.some((t: any) => t.name === typeAttaquant)) {
+                            multiplicateur *= 2;
+                        }
+                        // L'API nous dit ce qui est peu efficace CONTRE ce type
+                        if (infoType.damage_relations.half_damage_from.some((t: any) => t.name === typeAttaquant)) {
+                            multiplicateur *= 0.5;
+                        }
+                        // L'API nous dit ce qui n'a aucun effet CONTRE ce type
+                        if (infoType.damage_relations.no_damage_from.some((t: any) => t.name === typeAttaquant)) {
+                            multiplicateur = 0;
+                        }
+                    }
+                });
+
+                // Application du système de points
+                if (multiplicateur > 1) {
+                    scoreEquipe -= 1;
+                } else if (multiplicateur < 1) {
+                    scoreEquipe += 1;
+                }
+            });
+
+            if (scoreEquipe < 0) {
+                faiblessesNonCouvertes.push({ type: typeAttaquant, score: scoreEquipe });
+            }
+        });
+
+
+        if (faiblessesNonCouvertes.length === 0) {
+            container.className = "analysis-box safe";
+            container.innerHTML = "🛡️ Couverture Défensive Parfaite !";
+        } else {
+            // On trie pour afficher les plus grosses failles en premier
+            faiblessesNonCouvertes.sort((a, b) => a.score - b.score);
+
+            const htmlAlertes = faiblessesNonCouvertes.map(f => `
+                <div class="weakness-row">
+                    <span class="type-name type-${f.type}">${f.type.toUpperCase()}</span>
+                    <span class="danger-level" style="color:#ff4d4d">Faiblesse non couverte (Score ${f.score})</span>
+                </div>
+            `).join('');
+
+            container.className = "analysis-box danger";
+            container.innerHTML = `
+                <div class="analysis-title">FAILLES DÉFENSIVES</div>
+                <div style="font-size:0.6rem; margin-bottom:5px; font-style:italic;">(Ajoutez des résistances pour compenser)</div>
+                ${htmlAlertes}
+            `;
+        }
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = "<div style='color:red; font-size:0.7rem'>Erreur analyse</div>";
+    }
+}
+
+function attacherEvenementsSuppression(context: HTMLElement) {
+    const btns = context.querySelectorAll('.delete-btn');
     btns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const target = e.target as HTMLElement;
-            // Récupérer les infos stockées dans les attributs data-team et data-id
             const numTeam = target.getAttribute('data-team');
             const idPokemon = target.getAttribute('data-id');
 
@@ -127,24 +221,24 @@ function retirerPokemon(numEquipe: number, idPokemon: number) {
 
     if (data) {
         let equipe: MembreEquipe[] = JSON.parse(data);
-
-        // On garde tous les pokémons SAUF celui qui a l'ID qu'on veut supprimer
         equipe = equipe.filter(pokemon => pokemon.id !== idPokemon);
-
-        // On sauvegarde le nouveau tableau
         localStorage.setItem(cle, JSON.stringify(equipe));
-
-        // On rafraîchit l'affichage pour voir le résultat tout de suite
-        afficherPageEquipes();
+        afficherPageEquipes(); // Rechargera la page et relancera l'analyse
     }
 }
 
-// 4. LOGIQUE D'AJOUT (Celle que tu avais déjà, inchangée)
 export function ajouterPokemon(numeroEquipe: number, donneesPokemon: any) {
+    // On garde name + url pour pouvoir rappeler l'API plus tard
+    const typesExtraits = donneesPokemon.types.map((t: any) => ({
+        name: t.type.name,
+        url: t.type.url
+    }));
+
     const nouveauMembre: MembreEquipe = {
         id: donneesPokemon.id,
         nom: donneesPokemon.name,
-        image: donneesPokemon.sprites.other['official-artwork'].front_default
+        image: donneesPokemon.sprites.other['official-artwork'].front_default,
+        types: typesExtraits
     };
 
     const cleSauvegarde = "team_" + numeroEquipe;
@@ -152,7 +246,7 @@ export function ajouterPokemon(numeroEquipe: number, donneesPokemon: any) {
     let equipeActuelle: MembreEquipe[] = dataTexte ? JSON.parse(dataTexte) : [];
 
     if (equipeActuelle.some(p => p.id === nouveauMembre.id)) {
-        alert(`${nouveauMembre.nom} est déjà dans l'équipe ${numeroEquipe} !`);
+        alert("Ce Pokémon est déjà dans l'équipe !");
         return;
     }
 
@@ -164,7 +258,6 @@ export function ajouterPokemon(numeroEquipe: number, donneesPokemon: any) {
     equipeActuelle.push(nouveauMembre);
     localStorage.setItem(cleSauvegarde, JSON.stringify(equipeActuelle));
 
-    // Petit bonus : demande confirmation visuelle
     if(confirm(`${nouveauMembre.nom} ajouté ! Voir mes équipes ?`)) {
         afficherPageEquipes();
     }
