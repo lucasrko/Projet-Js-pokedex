@@ -129,11 +129,11 @@ export function retourListe() {
 
     document.querySelector('#search-btn')?.addEventListener('click', () => {
 
-        rechercherUnPokemon(0)
+        rechercherUnPokemon()
     });
 
     document.querySelector<HTMLInputElement>('#search-input')?.addEventListener('keypress', (e:KeyboardEvent) => {
-        if (e.key === 'Enter') rechercherUnPokemon(0);
+        if (e.key === 'Enter') rechercherUnPokemon();
     });
 
     getPokemonIndic(currentPage);
